@@ -18,11 +18,15 @@ from agenthalt.decorators import GuardedCallBlocked, GuardedCallNeedsApproval
 # ── Set up the engine ────────────────────────────────────────
 engine = PolicyEngine()
 engine.add_guard(BudgetGuard(BudgetConfig(max_daily_spend=1.0, default_cost=0.05)))
-engine.add_guard(DeletionGuard(DeletionConfig(
-    allow_patterns=["temp_*"],
-    protected_resources=["inbox"],
-    require_approval_always=False,
-)))
+engine.add_guard(
+    DeletionGuard(
+        DeletionConfig(
+            allow_patterns=["temp_*"],
+            protected_resources=["inbox"],
+            require_approval_always=False,
+        )
+    )
+)
 
 
 # ── Decorate your functions ─────────────────────────────────

@@ -14,6 +14,7 @@ import sys
 
 def print_banner() -> None:
     from agenthalt import __version__
+
     print(f"""
 ╔══════════════════════════════════════════════════════════════╗
 ║  🛡️  AgentHalt v{__version__:<10s}                                  ║
@@ -125,6 +126,7 @@ def cmd_quickstart() -> None:
 
 def cmd_version() -> None:
     from agenthalt import __version__
+
     print(f"agenthalt {__version__}")
 
 
@@ -132,6 +134,7 @@ def cmd_demo() -> None:
     print_banner()
     try:
         import importlib
+
         importlib.import_module("fastapi")
         importlib.import_module("uvicorn")
     except ImportError:
@@ -145,8 +148,9 @@ def cmd_demo() -> None:
     print("Starting live demo with dashboard at http://localhost:8550 ...")
     print("Press Ctrl+C to stop.\n")
 
-    import subprocess
     import os
+    import subprocess
+
     # Find the examples/live_demo.py relative to the package
     pkg_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     demo_path = os.path.join(pkg_dir, "examples", "live_demo.py")
@@ -165,6 +169,7 @@ def cmd_check(filepath: str) -> None:
     print_banner()
     try:
         from agenthalt.config import load_config
+
         engine = load_config(filepath)
         guards = engine.guards
         print(f"✅ Config valid: {filepath}")

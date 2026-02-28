@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any, Callable, TYPE_CHECKING
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any
 
 from agenthalt.core.context import CallContext
 from agenthalt.core.decision import Decision, DecisionType
@@ -59,9 +60,7 @@ class GuardResult:
             return True
         if final.decision == DecisionType.MODIFY:
             return True
-        if final.decision == DecisionType.REQUIRE_APPROVAL and self.approved:
-            return True
-        return False
+        return final.decision == DecisionType.REQUIRE_APPROVAL and self.approved
 
     @property
     def is_denied(self) -> bool:
@@ -69,10 +68,7 @@ class GuardResult:
 
     @property
     def needs_approval(self) -> bool:
-        return (
-            self.final_decision.decision == DecisionType.REQUIRE_APPROVAL
-            and not self.approved
-        )
+        return self.final_decision.decision == DecisionType.REQUIRE_APPROVAL and not self.approved
 
     @property
     def modified_arguments(self) -> dict[str, Any] | None:
@@ -210,16 +206,18 @@ class PolicyEngine:
 
         # Handle exceptions from individual guards
         valid_decisions: list[Decision] = []
-        for guard, decision in zip(applicable, decisions):
+        for guard, decision in zip(applicable, decisions, strict=True):
             if isinstance(decision, Exception):
                 logger.error("Guard %s raised exception: %s", guard.name, decision)
                 # Fail-safe: treat guard errors as denials
-                valid_decisions.append(Decision(
-                    decision=DecisionType.DENY,
-                    guard_name=guard.name,
-                    reason=f"Guard error (fail-safe deny): {decision}",
-                    risk_score=1.0,
-                ))
+                valid_decisions.append(
+                    Decision(
+                        decision=DecisionType.DENY,
+                        guard_name=guard.name,
+                        reason=f"Guard error (fail-safe deny): {decision}",
+                        risk_score=1.0,
+                    )
+                )
             else:
                 valid_decisions.append(decision)
 
@@ -234,22 +232,25 @@ class PolicyEngine:
         )
 
         # Emit real-time event
-        self._emit_event({
-            "type": "evaluation",
-            "call_id": ctx.call_id,
-            "function_name": ctx.function_name,
-            "agent_id": ctx.agent_id,
-            "session_id": ctx.session_id,
-            "decision": result.final_decision.decision.value,
-            "risk_score": result.max_risk_score,
-            "reasons": [d.reason for d in valid_decisions if d.reason],
-            "guard_count": len(applicable),
-            "timestamp": ctx.timestamp,
-        })
+        self._emit_event(
+            {
+                "type": "evaluation",
+                "call_id": ctx.call_id,
+                "function_name": ctx.function_name,
+                "agent_id": ctx.agent_id,
+                "session_id": ctx.session_id,
+                "decision": result.final_decision.decision.value,
+                "risk_score": result.max_risk_score,
+                "reasons": [d.reason for d in valid_decisions if d.reason],
+                "guard_count": len(applicable),
+                "timestamp": ctx.timestamp,
+            }
+        )
 
         # Auto-route to approval handler if wired in
         if result.needs_approval and self._approval_handler:
             from agenthalt.hil.approval import ApprovalRequest
+
             request = ApprovalRequest(
                 call_context=ctx,
                 decisions=result.decisions,
@@ -258,14 +259,16 @@ class PolicyEngine:
             )
             response = await self._approval_handler.request_approval(request)
             result.approved = response.approved
-            self._emit_event({
-                "type": "approval",
-                "call_id": ctx.call_id,
-                "function_name": ctx.function_name,
-                "approved": response.approved,
-                "approver": response.approver,
-                "reason": response.reason,
-            })
+            self._emit_event(
+                {
+                    "type": "approval",
+                    "call_id": ctx.call_id,
+                    "function_name": ctx.function_name,
+                    "approved": response.approved,
+                    "approver": response.approver,
+                    "reason": response.reason,
+                }
+            )
 
         # Run post-hooks
         self._run_post_hooks(ctx, result)
@@ -275,11 +278,12 @@ class PolicyEngine:
     def evaluate_sync(self, ctx: CallContext) -> GuardResult:
         """Synchronous wrapper around evaluate()."""
         try:
-            loop = asyncio.get_running_loop()
+            asyncio.get_running_loop()
         except RuntimeError:
             return asyncio.run(self.evaluate(ctx))
         else:
             import concurrent.futures
+
             with concurrent.futures.ThreadPoolExecutor() as pool:
                 future = pool.submit(asyncio.run, self.evaluate(ctx))
                 return future.result()

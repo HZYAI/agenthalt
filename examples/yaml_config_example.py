@@ -21,8 +21,12 @@ async def main() -> None:
     # Test a few calls
     calls = [
         CallContext(function_name="gpt4_call", arguments={"prompt": "Hi"}, session_id="s1"),
-        CallContext(function_name="delete_email", arguments={"resource_id": "inbox"}, session_id="s1"),
-        CallContext(function_name="delete_file", arguments={"resource_id": "temp_log"}, session_id="s1"),
+        CallContext(
+            function_name="delete_email", arguments={"resource_id": "inbox"}, session_id="s1"
+        ),
+        CallContext(
+            function_name="delete_file", arguments={"resource_id": "temp_log"}, session_id="s1"
+        ),
         CallContext(function_name="purchase_item", arguments={"amount": 200.0}, session_id="s1"),
         CallContext(function_name="drop_table", arguments={"table": "users"}, session_id="s1"),
     ]

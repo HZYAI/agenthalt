@@ -8,14 +8,16 @@ from agenthalt.core.decision import DecisionType
 
 @pytest.fixture
 def deletion_guard() -> DeletionGuard:
-    return DeletionGuard(DeletionConfig(
-        allow_patterns=["temp_*", "draft_*", "cache_*"],
-        deny_patterns=["*_production", "*_backup"],
-        protected_resources=["inbox", "sent", "important"],
-        require_approval_always=False,
-        max_bulk_delete=5,
-        max_deletions_per_day=20,
-    ))
+    return DeletionGuard(
+        DeletionConfig(
+            allow_patterns=["temp_*", "draft_*", "cache_*"],
+            deny_patterns=["*_production", "*_backup"],
+            protected_resources=["inbox", "sent", "important"],
+            require_approval_always=False,
+            max_bulk_delete=5,
+            max_deletions_per_day=20,
+        )
+    )
 
 
 def make_ctx(fn: str = "delete_file", session: str = "s1", **kwargs) -> CallContext:
@@ -51,9 +53,9 @@ async def test_deny_not_in_allow_list(deletion_guard: DeletionGuard):
 
 @pytest.mark.asyncio
 async def test_deny_bulk_over_limit(deletion_guard: DeletionGuard):
-    result = await deletion_guard.evaluate(make_ctx(
-        resource_ids=["temp_1", "temp_2", "temp_3", "temp_4", "temp_5", "temp_6"]
-    ))
+    result = await deletion_guard.evaluate(
+        make_ctx(resource_ids=["temp_1", "temp_2", "temp_3", "temp_4", "temp_5", "temp_6"])
+    )
     assert result.decision == DecisionType.DENY
     assert "bulk" in result.reason.lower()
 

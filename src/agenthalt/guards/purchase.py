@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import re
 import threading
 import time
 from typing import Any
@@ -41,8 +40,15 @@ class PurchaseConfig(BaseModel):
     currency: str = "USD"
     purchase_functions: list[str] = Field(
         default_factory=lambda: [
-            "purchase", "buy", "order", "checkout", "make_payment",
-            "place_order", "subscribe", "pay", "transfer_funds",
+            "purchase",
+            "buy",
+            "order",
+            "checkout",
+            "make_payment",
+            "place_order",
+            "subscribe",
+            "pay",
+            "transfer_funds",
         ]
     )
 
@@ -62,12 +68,14 @@ class PurchaseTracker:
             self._maybe_reset()
             self._daily_total += amount
             self._daily_count += 1
-            self._history.append({
-                "amount": amount,
-                "function": ctx.function_name,
-                "arguments": dict(ctx.arguments),
-                "timestamp": time.time(),
-            })
+            self._history.append(
+                {
+                    "amount": amount,
+                    "function": ctx.function_name,
+                    "arguments": dict(ctx.arguments),
+                    "timestamp": time.time(),
+                }
+            )
 
     @property
     def daily_total(self) -> float:
@@ -90,6 +98,7 @@ class PurchaseTracker:
     @staticmethod
     def _next_day() -> float:
         import datetime
+
         tomorrow = datetime.datetime.now(datetime.timezone.utc).replace(
             hour=0, minute=0, second=0, microsecond=0
         ) + datetime.timedelta(days=1)
@@ -176,28 +185,32 @@ class PurchaseGuard(Guard):
                             f"Purchase category '{category}' is blocked",
                             details=details,
                         )
-            if self.config.allowed_categories:
-                if not any(allowed.lower() in category for allowed in self.config.allowed_categories):
-                    return self.deny(
-                        f"Purchase category '{category}' is not in allowed list",
-                        details=details,
-                    )
+            if self.config.allowed_categories and not any(
+                allowed.lower() in category for allowed in self.config.allowed_categories
+            ):
+                return self.deny(
+                    f"Purchase category '{category}' is not in allowed list",
+                    details=details,
+                )
 
         # Check single purchase limit
         if self.config.max_single_purchase is not None and amount > self.config.max_single_purchase:
             return self.deny(
-                f"Purchase ${amount:.2f} exceeds single-purchase limit ${self.config.max_single_purchase:.2f}",
+                f"Purchase ${amount:.2f} exceeds single-purchase"
+                f" limit ${self.config.max_single_purchase:.2f}",
                 details=details,
             )
 
         # Check daily count limit
-        if self.config.max_purchase_count_per_day is not None:
-            if self.tracker.daily_count >= self.config.max_purchase_count_per_day:
-                return self.deny(
-                    f"Daily purchase count ({self.tracker.daily_count}) has reached limit "
-                    f"({self.config.max_purchase_count_per_day})",
-                    details={**details, "daily_count": self.tracker.daily_count},
-                )
+        if (
+            self.config.max_purchase_count_per_day is not None
+            and self.tracker.daily_count >= self.config.max_purchase_count_per_day
+        ):
+            return self.deny(
+                f"Daily purchase count ({self.tracker.daily_count}) has reached limit "
+                f"({self.config.max_purchase_count_per_day})",
+                details={**details, "daily_count": self.tracker.daily_count},
+            )
 
         # Check daily total limit
         if self.config.max_daily_purchases is not None:
@@ -210,7 +223,10 @@ class PurchaseGuard(Guard):
                 )
 
         # Check approval threshold
-        if self.config.require_approval_above is not None and amount > self.config.require_approval_above:
+        if (
+            self.config.require_approval_above is not None
+            and amount > self.config.require_approval_above
+        ):
             return self.require_approval(
                 f"Purchase ${amount:.2f} exceeds approval threshold "
                 f"${self.config.require_approval_above:.2f}",

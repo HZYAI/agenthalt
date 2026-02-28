@@ -8,14 +8,16 @@ from agenthalt.core.decision import DecisionType
 
 @pytest.fixture
 def budget_guard() -> BudgetGuard:
-    return BudgetGuard(BudgetConfig(
-        max_call_cost=1.0,
-        max_session_spend=5.0,
-        max_daily_spend=10.0,
-        warn_threshold=0.8,
-        default_cost=0.1,
-        cost_estimator={"expensive_call": 2.0, "cheap_call": 0.01},
-    ))
+    return BudgetGuard(
+        BudgetConfig(
+            max_call_cost=1.0,
+            max_session_spend=5.0,
+            max_daily_spend=10.0,
+            warn_threshold=0.8,
+            default_cost=0.1,
+            cost_estimator={"expensive_call": 2.0, "cheap_call": 0.01},
+        )
+    )
 
 
 def make_ctx(fn: str = "test_call", session: str = "s1", **kwargs) -> CallContext:
@@ -37,10 +39,12 @@ async def test_deny_over_call_cost(budget_guard: BudgetGuard):
 
 @pytest.mark.asyncio
 async def test_deny_over_session_spend(budget_guard: BudgetGuard):
-    guard = BudgetGuard(BudgetConfig(
-        max_session_spend=0.5,
-        default_cost=0.2,
-    ))
+    guard = BudgetGuard(
+        BudgetConfig(
+            max_session_spend=0.5,
+            default_cost=0.2,
+        )
+    )
     # First two calls: 0.2 + 0.2 = 0.4 (under 0.5)
     r1 = await guard.evaluate(make_ctx())
     assert r1.decision == DecisionType.ALLOW
@@ -54,11 +58,13 @@ async def test_deny_over_session_spend(budget_guard: BudgetGuard):
 
 @pytest.mark.asyncio
 async def test_warn_threshold_triggers_approval(budget_guard: BudgetGuard):
-    guard = BudgetGuard(BudgetConfig(
-        max_session_spend=1.0,
-        default_cost=0.3,
-        warn_threshold=0.7,
-    ))
+    guard = BudgetGuard(
+        BudgetConfig(
+            max_session_spend=1.0,
+            default_cost=0.3,
+            warn_threshold=0.7,
+        )
+    )
     # First two: 0.3 + 0.3 = 0.6 (60%, under 70%)
     await guard.evaluate(make_ctx())
     await guard.evaluate(make_ctx())
@@ -83,10 +89,12 @@ async def test_explicit_cost_over_limit(budget_guard: BudgetGuard):
 
 @pytest.mark.asyncio
 async def test_daily_spend_limit():
-    guard = BudgetGuard(BudgetConfig(
-        max_daily_spend=0.5,
-        default_cost=0.2,
-    ))
+    guard = BudgetGuard(
+        BudgetConfig(
+            max_daily_spend=0.5,
+            default_cost=0.2,
+        )
+    )
     await guard.evaluate(make_ctx(session="s1"))
     await guard.evaluate(make_ctx(session="s2"))
     # 0.4 + 0.2 = 0.6 > 0.5

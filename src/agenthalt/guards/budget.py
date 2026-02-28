@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import time
 import threading
+import time
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -60,14 +60,14 @@ class SpendingTracker:
         self._daily_spend += cost
         self._monthly_spend += cost
         if session_id:
-            self._session_spend[session_id] = (
-                self._session_spend.get(session_id, 0.0) + cost
-            )
-        self._call_history.append({
-            "cost": cost,
-            "session_id": session_id,
-            "timestamp": time.time(),
-        })
+            self._session_spend[session_id] = self._session_spend.get(session_id, 0.0) + cost
+        self._call_history.append(
+            {
+                "cost": cost,
+                "session_id": session_id,
+                "timestamp": time.time(),
+            }
+        )
 
     def record(self, cost: float, session_id: str | None = None) -> None:
         with self._lock:
@@ -122,6 +122,7 @@ class SpendingTracker:
     @staticmethod
     def _next_day_boundary() -> float:
         import datetime
+
         tomorrow = datetime.datetime.now(datetime.timezone.utc).replace(
             hour=0, minute=0, second=0, microsecond=0
         ) + datetime.timedelta(days=1)
@@ -130,11 +131,16 @@ class SpendingTracker:
     @staticmethod
     def _next_month_boundary() -> float:
         import datetime
+
         now = datetime.datetime.now(datetime.timezone.utc)
         if now.month == 12:
-            first_next = now.replace(year=now.year + 1, month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+            first_next = now.replace(
+                year=now.year + 1, month=1, day=1, hour=0, minute=0, second=0, microsecond=0
+            )
         else:
-            first_next = now.replace(month=now.month + 1, day=1, hour=0, minute=0, second=0, microsecond=0)
+            first_next = now.replace(
+                month=now.month + 1, day=1, hour=0, minute=0, second=0, microsecond=0
+            )
         return first_next.timestamp()
 
 
@@ -192,12 +198,14 @@ class BudgetGuard(Guard):
                 details["session_limit"] = self.config.max_session_spend
                 if session_total > self.config.max_session_spend:
                     return self.deny(
-                        f"Session spend ${session_total:.4f} would exceed limit ${self.config.max_session_spend:.4f}",
+                        f"Session spend ${session_total:.4f} would exceed"
+                        f" limit ${self.config.max_session_spend:.4f}",
                         details=details,
                     )
                 if session_total > self.config.max_session_spend * self.config.warn_threshold:
                     return self.require_approval(
-                        f"Session spend ${session_total:.4f} approaching limit ${self.config.max_session_spend:.4f} "
+                        f"Session spend ${session_total:.4f} approaching"
+                        f" limit ${self.config.max_session_spend:.4f} "
                         f"({session_total / self.config.max_session_spend:.0%})",
                         details=details,
                         risk_score=session_total / self.config.max_session_spend,
@@ -210,12 +218,14 @@ class BudgetGuard(Guard):
                 details["daily_limit"] = self.config.max_daily_spend
                 if daily_total > self.config.max_daily_spend:
                     return self.deny(
-                        f"Daily spend ${daily_total:.4f} would exceed limit ${self.config.max_daily_spend:.4f}",
+                        f"Daily spend ${daily_total:.4f} would exceed"
+                        f" limit ${self.config.max_daily_spend:.4f}",
                         details=details,
                     )
                 if daily_total > self.config.max_daily_spend * self.config.warn_threshold:
                     return self.require_approval(
-                        f"Daily spend ${daily_total:.4f} approaching limit ${self.config.max_daily_spend:.4f} "
+                        f"Daily spend ${daily_total:.4f} approaching"
+                        f" limit ${self.config.max_daily_spend:.4f} "
                         f"({daily_total / self.config.max_daily_spend:.0%})",
                         details=details,
                         risk_score=daily_total / self.config.max_daily_spend,
@@ -228,7 +238,8 @@ class BudgetGuard(Guard):
                 details["monthly_limit"] = self.config.max_monthly_spend
                 if monthly_total > self.config.max_monthly_spend:
                     return self.deny(
-                        f"Monthly spend ${monthly_total:.4f} would exceed limit ${self.config.max_monthly_spend:.4f}",
+                        f"Monthly spend ${monthly_total:.4f} would exceed"
+                        f" limit ${self.config.max_monthly_spend:.4f}",
                         details=details,
                     )
 

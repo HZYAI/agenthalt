@@ -63,9 +63,11 @@ async def test_read_only_mode():
 
 @pytest.mark.asyncio
 async def test_per_agent_deny():
-    guard = ScopeGuard(ScopeConfig(
-        deny_by_agent={"untrusted_agent": ["send_*", "delete_*"]},
-    ))
+    guard = ScopeGuard(
+        ScopeConfig(
+            deny_by_agent={"untrusted_agent": ["send_*", "delete_*"]},
+        )
+    )
     r1 = await guard.evaluate(make_ctx("send_email", agent_id="untrusted_agent"))
     assert r1.decision == DecisionType.DENY
     r2 = await guard.evaluate(make_ctx("send_email", agent_id="trusted_agent"))
@@ -74,9 +76,11 @@ async def test_per_agent_deny():
 
 @pytest.mark.asyncio
 async def test_per_agent_allow():
-    guard = ScopeGuard(ScopeConfig(
-        allow_by_agent={"limited_agent": ["read_*", "get_*"]},
-    ))
+    guard = ScopeGuard(
+        ScopeConfig(
+            allow_by_agent={"limited_agent": ["read_*", "get_*"]},
+        )
+    )
     r1 = await guard.evaluate(make_ctx("read_data", agent_id="limited_agent"))
     assert r1.decision == DecisionType.ALLOW
     r2 = await guard.evaluate(make_ctx("delete_data", agent_id="limited_agent"))

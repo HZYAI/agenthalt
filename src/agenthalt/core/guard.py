@@ -62,6 +62,7 @@ class Guard(ABC):
     def evaluate_sync(self, ctx: CallContext) -> Decision:
         """Synchronous wrapper around evaluate()."""
         import concurrent.futures
+
         try:
             asyncio.get_running_loop()
         except RuntimeError:
@@ -80,7 +81,9 @@ class Guard(ABC):
             reason=reason,
         )
 
-    def deny(self, reason: str, *, details: dict[str, Any] | None = None, risk_score: float = 1.0) -> Decision:
+    def deny(
+        self, reason: str, *, details: dict[str, Any] | None = None, risk_score: float = 1.0
+    ) -> Decision:
         return Decision(
             decision=DecisionType.DENY,
             guard_name=self._name,
@@ -101,7 +104,11 @@ class Guard(ABC):
         )
 
     def modify(
-        self, reason: str, modified_arguments: dict[str, Any], *, details: dict[str, Any] | None = None
+        self,
+        reason: str,
+        modified_arguments: dict[str, Any],
+        *,
+        details: dict[str, Any] | None = None,
     ) -> Decision:
         return Decision(
             decision=DecisionType.MODIFY,

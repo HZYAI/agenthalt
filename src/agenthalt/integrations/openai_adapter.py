@@ -116,11 +116,12 @@ class OpenAIGuardedClient:
         import asyncio
 
         try:
-            loop = asyncio.get_running_loop()
+            asyncio.get_running_loop()
         except RuntimeError:
             return asyncio.run(self.evaluate_tool_call(tool_call, **kwargs))
         else:
             import concurrent.futures
+
             with concurrent.futures.ThreadPoolExecutor() as pool:
                 future = pool.submit(asyncio.run, self.evaluate_tool_call(tool_call, **kwargs))
                 return future.result()

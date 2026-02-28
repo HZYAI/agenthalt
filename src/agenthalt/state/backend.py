@@ -44,7 +44,9 @@ class StateBackend(ABC):
         ...
 
     @abstractmethod
-    def append_list(self, namespace: str, key: str, value: dict[str, Any], max_size: int = 10000) -> None:
+    def append_list(
+        self, namespace: str, key: str, value: dict[str, Any], max_size: int = 10000
+    ) -> None:
         """Append to a list, trimming to max_size."""
         ...
 
@@ -53,9 +55,8 @@ class StateBackend(ABC):
         """Clear all keys in a namespace."""
         ...
 
-    def close(self) -> None:
-        """Clean up resources."""
-        pass
+    def close(self) -> None:  # noqa: B027
+        """Clean up resources. Override in subclasses that need cleanup."""
 
 
 class InMemoryBackend(StateBackend):
@@ -104,7 +105,9 @@ class InMemoryBackend(StateBackend):
             items = self._lists.get(namespace, {}).get(key, [])
             return items[-limit:]
 
-    def append_list(self, namespace: str, key: str, value: dict[str, Any], max_size: int = 10000) -> None:
+    def append_list(
+        self, namespace: str, key: str, value: dict[str, Any], max_size: int = 10000
+    ) -> None:
         with self._lock:
             ns = self._lists.setdefault(namespace, {})
             lst = ns.setdefault(key, [])
@@ -169,7 +172,9 @@ class SQLiteBackend(StateBackend):
         conn.commit()
 
     def _cleanup_expired(self, conn: sqlite3.Connection) -> None:
-        conn.execute("DELETE FROM kv_store WHERE expires_at IS NOT NULL AND expires_at < ?", (time.time(),))
+        conn.execute(
+            "DELETE FROM kv_store WHERE expires_at IS NOT NULL AND expires_at < ?", (time.time(),)
+        )
 
     def get(self, namespace: str, key: str, default: Any = None) -> Any:
         conn = self._get_conn()
@@ -186,7 +191,8 @@ class SQLiteBackend(StateBackend):
         conn = self._get_conn()
         expires_at = (time.time() + ttl) if ttl else None
         conn.execute(
-            "INSERT OR REPLACE INTO kv_store (namespace, key, value, expires_at) VALUES (?, ?, ?, ?)",
+            "INSERT OR REPLACE INTO kv_store"
+            " (namespace, key, value, expires_at) VALUES (?, ?, ?, ?)",
             (namespace, key, json.dumps(value), expires_at),
         )
         conn.commit()
@@ -201,7 +207,8 @@ class SQLiteBackend(StateBackend):
         current = json.loads(row[0]) if row else 0.0
         new_val = float(current) + amount
         conn.execute(
-            "INSERT OR REPLACE INTO kv_store (namespace, key, value, expires_at) VALUES (?, ?, ?, NULL)",
+            "INSERT OR REPLACE INTO kv_store"
+            " (namespace, key, value, expires_at) VALUES (?, ?, ?, NULL)",
             (namespace, key, json.dumps(new_val)),
         )
         conn.commit()
@@ -215,7 +222,9 @@ class SQLiteBackend(StateBackend):
         ).fetchall()
         return [json.loads(r[0]) for r in reversed(rows)]
 
-    def append_list(self, namespace: str, key: str, value: dict[str, Any], max_size: int = 10000) -> None:
+    def append_list(
+        self, namespace: str, key: str, value: dict[str, Any], max_size: int = 10000
+    ) -> None:
         conn = self._get_conn()
         conn.execute(
             "INSERT INTO list_store (namespace, key, value, created_at) VALUES (?, ?, ?, ?)",
@@ -229,7 +238,8 @@ class SQLiteBackend(StateBackend):
         if count > max_size:
             conn.execute(
                 "DELETE FROM list_store WHERE id IN ("
-                "  SELECT id FROM list_store WHERE namespace = ? AND key = ? ORDER BY id ASC LIMIT ?"
+                "  SELECT id FROM list_store"
+                "  WHERE namespace = ? AND key = ? ORDER BY id ASC LIMIT ?"
                 ")",
                 (namespace, key, count - max_size),
             )

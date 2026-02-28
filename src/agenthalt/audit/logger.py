@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import logging
 import time
 from pathlib import Path
@@ -111,7 +110,7 @@ class JsonFileSink(AuditSink):
 
     def _ensure_open(self) -> TextIO:
         if self._file is None or self._file.closed:
-            self._file = open(self._path, "a", encoding="utf-8")
+            self._file = open(self._path, "a", encoding="utf-8")  # noqa: SIM115
         return self._file
 
     def write(self, entry: AuditEntry) -> None:
@@ -135,9 +134,7 @@ class LoggingSink(AuditSink):
 
     def write(self, entry: AuditEntry) -> None:
         level = logging.INFO
-        if entry.final_decision == "deny":
-            level = logging.WARNING
-        elif entry.final_decision == "require_approval":
+        if entry.final_decision == "deny" or entry.final_decision == "require_approval":
             level = logging.WARNING
 
         self._logger.log(
@@ -204,7 +201,7 @@ class AuditLogger:
         # Store in memory (with cap)
         self._entries.append(entry)
         if len(self._entries) > self._max_memory_entries:
-            self._entries = self._entries[-self._max_memory_entries:]
+            self._entries = self._entries[-self._max_memory_entries :]
 
         # Dispatch to sinks
         for sink in self._sinks:

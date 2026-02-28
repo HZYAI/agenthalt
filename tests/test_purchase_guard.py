@@ -8,13 +8,15 @@ from agenthalt.core.decision import DecisionType
 
 @pytest.fixture
 def purchase_guard() -> PurchaseGuard:
-    return PurchaseGuard(PurchaseConfig(
-        max_single_purchase=100.0,
-        max_daily_purchases=500.0,
-        max_purchase_count_per_day=5,
-        require_approval_above=50.0,
-        blocked_categories=["luxury", "gambling"],
-    ))
+    return PurchaseGuard(
+        PurchaseConfig(
+            max_single_purchase=100.0,
+            max_daily_purchases=500.0,
+            max_purchase_count_per_day=5,
+            require_approval_above=50.0,
+            blocked_categories=["luxury", "gambling"],
+        )
+    )
 
 
 def make_ctx(fn: str = "purchase_item", **kwargs) -> CallContext:
@@ -80,9 +82,11 @@ async def test_daily_count_limit(purchase_guard: PurchaseGuard):
 
 @pytest.mark.asyncio
 async def test_allowed_categories_whitelist():
-    guard = PurchaseGuard(PurchaseConfig(
-        allowed_categories=["office", "software"],
-    ))
+    guard = PurchaseGuard(
+        PurchaseConfig(
+            allowed_categories=["office", "software"],
+        )
+    )
     r1 = await guard.evaluate(make_ctx(amount=10.0, category="office"))
     assert r1.decision == DecisionType.ALLOW
     r2 = await guard.evaluate(make_ctx(amount=10.0, category="food"))

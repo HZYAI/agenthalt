@@ -44,57 +44,81 @@ def build_engine() -> PolicyEngine:
     engine = PolicyEngine()
 
     # Budget Guard — prevent cost overruns
-    engine.add_guard(BudgetGuard(BudgetConfig(
-        max_daily_spend=10.0,
-        max_session_spend=2.0,
-        warn_threshold=0.8,
-        cost_estimator={
-            "gpt4_call": 0.03,
-            "gpt4o_call": 0.005,
-            "image_generation": 0.04,
-            "web_search": 0.01,
-            "embedding_call": 0.0001,
-        },
-    )))
+    engine.add_guard(
+        BudgetGuard(
+            BudgetConfig(
+                max_daily_spend=10.0,
+                max_session_spend=2.0,
+                warn_threshold=0.8,
+                cost_estimator={
+                    "gpt4_call": 0.03,
+                    "gpt4o_call": 0.005,
+                    "image_generation": 0.04,
+                    "web_search": 0.01,
+                    "embedding_call": 0.0001,
+                },
+            )
+        )
+    )
 
     # Purchase Guard — block unauthorized purchases
-    engine.add_guard(PurchaseGuard(PurchaseConfig(
-        max_single_purchase=100.0,
-        max_daily_purchases=500.0,
-        require_approval_above=50.0,
-        blocked_categories=["luxury", "gambling", "weapons"],
-    )))
+    engine.add_guard(
+        PurchaseGuard(
+            PurchaseConfig(
+                max_single_purchase=100.0,
+                max_daily_purchases=500.0,
+                require_approval_above=50.0,
+                blocked_categories=["luxury", "gambling", "weapons"],
+            )
+        )
+    )
 
     # Deletion Guard — protect critical resources
-    engine.add_guard(DeletionGuard(DeletionConfig(
-        allow_patterns=["temp_*", "draft_*", "cache_*"],
-        protected_resources=["inbox", "sent", "production_db", "user_data"],
-        require_approval_always=True,
-        max_bulk_delete=5,
-        cooldown_seconds=2.0,
-    )))
+    engine.add_guard(
+        DeletionGuard(
+            DeletionConfig(
+                allow_patterns=["temp_*", "draft_*", "cache_*"],
+                protected_resources=["inbox", "sent", "production_db", "user_data"],
+                require_approval_always=True,
+                max_bulk_delete=5,
+                cooldown_seconds=2.0,
+            )
+        )
+    )
 
     # Rate Limit Guard — detect stuck loops
-    engine.add_guard(RateLimitGuard(RateLimitConfig(
-        max_calls_per_minute=60,
-        max_calls_per_minute_per_function=20,
-        max_identical_calls=3,
-        burst_threshold=15,
-        burst_window_seconds=3.0,
-        cooldown_seconds=10.0,
-    )))
+    engine.add_guard(
+        RateLimitGuard(
+            RateLimitConfig(
+                max_calls_per_minute=60,
+                max_calls_per_minute_per_function=20,
+                max_identical_calls=3,
+                burst_threshold=15,
+                burst_window_seconds=3.0,
+                cooldown_seconds=10.0,
+            )
+        )
+    )
 
     # Scope Guard — restrict dangerous functions
-    engine.add_guard(ScopeGuard(ScopeConfig(
-        deny_functions=["drop_*", "format_*", "shutdown_*", "rm_*"],
-        require_approval_functions=["send_email", "post_to_slack", "deploy_*"],
-    )))
+    engine.add_guard(
+        ScopeGuard(
+            ScopeConfig(
+                deny_functions=["drop_*", "format_*", "shutdown_*", "rm_*"],
+                require_approval_functions=["send_email", "post_to_slack", "deploy_*"],
+            )
+        )
+    )
 
     # Sensitive Data Guard — block PII leakage
-    engine.add_guard(SensitiveDataGuard(SensitiveDataConfig(
-        blocked_patterns=["ssn", "credit_card", "api_key", "aws_key"],
-        sensitive_fields=["password", "secret", "token"],
-    )))
+    engine.add_guard(
+        SensitiveDataGuard(
+            SensitiveDataConfig(
+                blocked_patterns=["ssn", "credit_card", "api_key", "aws_key"],
+                sensitive_fields=["password", "secret", "token"],
+            )
+        )
+    )
 
     # Wire up dashboard events
     engine.add_event_listener(create_event_listener())
@@ -174,10 +198,10 @@ async def run_scenario(engine: PolicyEngine, name: str, actions: list, delay: fl
 
 
 async def main():
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("  🛡️  AgentHalt — Live Demo")
     print("  Open http://localhost:8550 for the real-time dashboard")
-    print("="*60)
+    print("=" * 60)
 
     engine = build_engine()
 
@@ -210,11 +234,15 @@ async def main():
     # ── Scenario 3: Agent stuck in a loop ──
     # Use a fresh engine with only RateLimitGuard to isolate the demo
     loop_engine = PolicyEngine()
-    loop_engine.add_guard(RateLimitGuard(RateLimitConfig(
-        max_calls_per_minute=100,
-        max_identical_calls=3,
-        burst_threshold=100,
-    )))
+    loop_engine.add_guard(
+        RateLimitGuard(
+            RateLimitConfig(
+                max_calls_per_minute=100,
+                max_identical_calls=3,
+                burst_threshold=100,
+            )
+        )
+    )
     loop_engine.add_event_listener(create_event_listener())
     print(f"\n{'='*60}")
     print(f"  SCENARIO: Agent Stuck in Loop (same call repeated)")
@@ -238,11 +266,15 @@ async def main():
     # ── Scenario 4: Budget exhaustion ──
     # Use a fresh engine with just BudgetGuard to isolate the demo
     budget_engine = PolicyEngine()
-    budget_engine.add_guard(BudgetGuard(BudgetConfig(
-        max_session_spend=0.15,
-        warn_threshold=0.6,
-        cost_estimator={"gpt4_call": 0.03},
-    )))
+    budget_engine.add_guard(
+        BudgetGuard(
+            BudgetConfig(
+                max_session_spend=0.15,
+                warn_threshold=0.6,
+                cost_estimator={"gpt4_call": 0.03},
+            )
+        )
+    )
     budget_engine.add_event_listener(create_event_listener())
     print(f"\n{'='*60}")
     print(f"  SCENARIO: Budget Exhaustion (session limit $0.15)")
@@ -281,5 +313,6 @@ async def main():
 
 if __name__ == "__main__":
     import logging
+
     logging.basicConfig(level=logging.WARNING)
     asyncio.run(main())

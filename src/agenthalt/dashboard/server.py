@@ -11,7 +11,6 @@ Provides a live monitoring dashboard showing:
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 import time
 from pathlib import Path
@@ -71,10 +70,10 @@ def create_app(engine: Any = None) -> Any:
     try:
         from fastapi import FastAPI, WebSocket, WebSocketDisconnect
         from fastapi.responses import HTMLResponse
-    except ImportError:
+    except ImportError as err:
         raise ImportError(
             "Dashboard requires FastAPI. Install with: pip install agenthalt[dashboard]"
-        )
+        ) from err
 
     app = FastAPI(title="AgentHalt Dashboard", version="0.1.0")
 
@@ -136,10 +135,10 @@ def run_dashboard(engine: Any = None, host: str = "127.0.0.1", port: int = 8550)
     """
     try:
         import uvicorn
-    except ImportError:
+    except ImportError as err:
         raise ImportError(
             "Dashboard requires uvicorn. Install with: pip install agenthalt[dashboard]"
-        )
+        ) from err
 
     app = create_app(engine)
     print(f"\n🛡️  AgentHalt Dashboard: http://{host}:{port}\n")

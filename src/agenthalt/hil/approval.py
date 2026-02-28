@@ -11,7 +11,8 @@ import json
 import logging
 import time
 from abc import ABC, abstractmethod
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -91,7 +92,8 @@ class ConsoleApprovalHandler(ApprovalHandler):
         print("🛡️  AGENTHALT — APPROVAL REQUIRED")
         print("=" * 60)
         print(f"Function:    {request.call_context.function_name}")
-        print(f"Arguments:   {json.dumps(dict(request.call_context.arguments), indent=2, default=str)}")
+        args_str = json.dumps(dict(request.call_context.arguments), indent=2, default=str)
+        print(f"Arguments:   {args_str}")
         print(f"Agent:       {request.call_context.agent_id or 'unknown'}")
         print(f"Session:     {request.call_context.session_id or 'unknown'}")
         print(f"Risk Score:  {request.risk_score:.2f}")

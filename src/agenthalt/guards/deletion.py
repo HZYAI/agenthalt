@@ -3,9 +3,8 @@
 from __future__ import annotations
 
 import fnmatch
-import re
-import time
 import threading
+import time
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -43,8 +42,16 @@ class DeletionConfig(BaseModel):
     soft_delete_only: bool = False
     deletion_functions: list[str] = Field(
         default_factory=lambda: [
-            "delete", "remove", "drop", "destroy", "purge", "erase",
-            "trash", "wipe", "clear", "truncate",
+            "delete",
+            "remove",
+            "drop",
+            "destroy",
+            "purge",
+            "erase",
+            "trash",
+            "wipe",
+            "clear",
+            "truncate",
         ]
     )
     cooldown_seconds: float = 0.0
@@ -70,11 +77,13 @@ class DeletionTracker:
                 self._session_counts[ctx.session_id] = (
                     self._session_counts.get(ctx.session_id, 0) + 1
                 )
-            self._history.append({
-                "function": ctx.function_name,
-                "arguments": dict(ctx.arguments),
-                "timestamp": time.time(),
-            })
+            self._history.append(
+                {
+                    "function": ctx.function_name,
+                    "arguments": dict(ctx.arguments),
+                    "timestamp": time.time(),
+                }
+            )
 
     def get_session_count(self, session_id: str) -> int:
         with self._lock:
@@ -99,6 +108,7 @@ class DeletionTracker:
     @staticmethod
     def _next_day() -> float:
         import datetime
+
         tomorrow = datetime.datetime.now(datetime.timezone.utc).replace(
             hour=0, minute=0, second=0, microsecond=0
         ) + datetime.timedelta(days=1)
@@ -217,9 +227,13 @@ class DeletionGuard(Guard):
                 )
 
         # Bulk delete limit
-        if self.config.max_bulk_delete is not None and len(resource_ids) > self.config.max_bulk_delete:
+        if (
+            self.config.max_bulk_delete is not None
+            and len(resource_ids) > self.config.max_bulk_delete
+        ):
             return self.deny(
-                f"Bulk delete of {len(resource_ids)} items exceeds limit of {self.config.max_bulk_delete}",
+                f"Bulk delete of {len(resource_ids)} items exceeds"
+                f" limit of {self.config.max_bulk_delete}",
                 details=details,
             )
 

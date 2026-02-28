@@ -5,7 +5,8 @@ from __future__ import annotations
 import asyncio
 import functools
 import inspect
-from typing import Any, Callable, TypeVar, overload
+from collections.abc import Callable
+from typing import Any, TypeVar
 
 from agenthalt.core.context import CallContext
 from agenthalt.core.engine import GuardResult, PolicyEngine
@@ -13,7 +14,7 @@ from agenthalt.core.engine import GuardResult, PolicyEngine
 F = TypeVar("F", bound=Callable[..., Any])
 
 
-class GuardedCallBlocked(Exception):
+class GuardedCallBlocked(Exception):  # noqa: N818
     """Raised when a guarded function call is blocked by a guard."""
 
     def __init__(self, result: GuardResult) -> None:
@@ -21,7 +22,7 @@ class GuardedCallBlocked(Exception):
         super().__init__(str(result))
 
 
-class GuardedCallNeedsApproval(Exception):
+class GuardedCallNeedsApproval(Exception):  # noqa: N818
     """Raised when a guarded function call requires human approval."""
 
     def __init__(self, result: GuardResult) -> None:

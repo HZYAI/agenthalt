@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Any, Callable
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -61,18 +61,18 @@ class PolicySet(BaseModel):
     def add(self, policy: Policy) -> PolicySet:
         """Return a new PolicySet with the policy added."""
         return self.model_copy(
-            update={"policies": sorted(
-                [*self.policies, policy],
-                key=lambda p: p.priority,
-                reverse=True,
-            )}
+            update={
+                "policies": sorted(
+                    [*self.policies, policy],
+                    key=lambda p: p.priority,
+                    reverse=True,
+                )
+            }
         )
 
     def remove(self, name: str) -> PolicySet:
         """Return a new PolicySet with the named policy removed."""
-        return self.model_copy(
-            update={"policies": [p for p in self.policies if p.name != name]}
-        )
+        return self.model_copy(update={"policies": [p for p in self.policies if p.name != name]})
 
     @property
     def active_policies(self) -> list[Policy]:

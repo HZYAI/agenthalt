@@ -11,14 +11,15 @@ from agenthalt.core.context import CallContext
 from agenthalt.core.decision import Decision
 from agenthalt.core.guard import Guard
 
-
 # Pre-compiled patterns for common sensitive data types
 _BUILTIN_PATTERNS: dict[str, re.Pattern[str]] = {
     "email": re.compile(r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}"),
     "ssn": re.compile(r"\b\d{3}-\d{2}-\d{4}\b"),
     "credit_card": re.compile(r"\b(?:\d{4}[- ]?){3}\d{4}\b"),
     "phone_us": re.compile(r"\b(?:\+1[-.]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b"),
-    "api_key": re.compile(r"(?:sk|pk|api|key|token|secret|password)[_\-]?[a-zA-Z0-9_\-]{16,}", re.IGNORECASE),
+    "api_key": re.compile(
+        r"(?:sk|pk|api|key|token|secret|password)[_\-]?[a-zA-Z0-9_\-]{16,}", re.IGNORECASE
+    ),
     "aws_key": re.compile(r"\bAKIA[0-9A-Z]{16}\b"),
     "jwt": re.compile(r"\beyJ[a-zA-Z0-9_-]+\.eyJ[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\b"),
     "ip_address": re.compile(r"\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b"),
@@ -47,8 +48,14 @@ class SensitiveDataConfig(BaseModel):
     custom_patterns: dict[str, str] = Field(default_factory=dict)
     sensitive_fields: list[str] = Field(
         default_factory=lambda: [
-            "password", "secret", "token", "api_key", "private_key",
-            "ssn", "credit_card", "social_security",
+            "password",
+            "secret",
+            "token",
+            "api_key",
+            "private_key",
+            "ssn",
+            "credit_card",
+            "social_security",
         ]
     )
     redact_on_modify: bool = False
@@ -72,8 +79,7 @@ class SensitiveDataGuard(Guard):
         super().__init__(name="sensitive_data")
         self.config = config
         self._compiled_custom: dict[str, re.Pattern[str]] = {
-            name: re.compile(pattern)
-            for name, pattern in config.custom_patterns.items()
+            name: re.compile(pattern) for name, pattern in config.custom_patterns.items()
         }
 
     def should_apply(self, ctx: CallContext) -> bool:
@@ -98,20 +104,24 @@ class SensitiveDataGuard(Guard):
             patterns = self._get_active_patterns()
             for name, pattern in patterns.items():
                 if pattern.search(value):
-                    findings.append({
-                        "pattern": name,
-                        "path": path,
-                        "preview": value[:50] + ("..." if len(value) > 50 else ""),
-                    })
+                    findings.append(
+                        {
+                            "pattern": name,
+                            "path": path,
+                            "preview": value[:50] + ("..." if len(value) > 50 else ""),
+                        }
+                    )
         elif isinstance(value, dict):
             for k, v in value.items():
                 # Check if the field name itself is sensitive
                 if any(sf in str(k).lower() for sf in self.config.sensitive_fields):
-                    findings.append({
-                        "pattern": "sensitive_field",
-                        "path": f"{path}.{k}",
-                        "preview": f"[field name '{k}' is sensitive]",
-                    })
+                    findings.append(
+                        {
+                            "pattern": "sensitive_field",
+                            "path": f"{path}.{k}",
+                            "preview": f"[field name '{k}' is sensitive]",
+                        }
+                    )
                 findings.extend(self._scan_value(v, f"{path}.{k}", depth - 1))
         elif isinstance(value, (list, tuple)):
             for i, item in enumerate(value):
@@ -127,11 +137,13 @@ class SensitiveDataGuard(Guard):
         for key, value in ctx.arguments.items():
             # Check if the top-level argument key itself is sensitive
             if any(sf in str(key).lower() for sf in self.config.sensitive_fields):
-                findings.append({
-                    "pattern": "sensitive_field",
-                    "path": key,
-                    "preview": f"[field name '{key}' is sensitive]",
-                })
+                findings.append(
+                    {
+                        "pattern": "sensitive_field",
+                        "path": key,
+                        "preview": f"[field name '{key}' is sensitive]",
+                    }
+                )
             findings.extend(self._scan_value(value, key, self.config.scan_depth))
 
         # Also scan metadata

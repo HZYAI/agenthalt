@@ -8,10 +8,12 @@ from agenthalt.core.decision import DecisionType
 
 @pytest.fixture
 def guard() -> SensitiveDataGuard:
-    return SensitiveDataGuard(SensitiveDataConfig(
-        blocked_patterns=["ssn", "credit_card", "api_key"],
-        sensitive_fields=["password", "secret", "token"],
-    ))
+    return SensitiveDataGuard(
+        SensitiveDataConfig(
+            blocked_patterns=["ssn", "credit_card", "api_key"],
+            sensitive_fields=["password", "secret", "token"],
+        )
+    )
 
 
 def make_ctx(fn: str = "process_data", **kwargs) -> CallContext:
@@ -53,18 +55,18 @@ async def test_deny_sensitive_field_name(guard: SensitiveDataGuard):
 
 @pytest.mark.asyncio
 async def test_deny_nested_sensitive_data(guard: SensitiveDataGuard):
-    result = await guard.evaluate(make_ctx(
-        user={"name": "John", "ssn": "123-45-6789"}
-    ))
+    result = await guard.evaluate(make_ctx(user={"name": "John", "ssn": "123-45-6789"}))
     assert result.decision == DecisionType.DENY
 
 
 @pytest.mark.asyncio
 async def test_redact_mode():
-    guard = SensitiveDataGuard(SensitiveDataConfig(
-        blocked_patterns=["ssn"],
-        redact_on_modify=True,
-    ))
+    guard = SensitiveDataGuard(
+        SensitiveDataConfig(
+            blocked_patterns=["ssn"],
+            redact_on_modify=True,
+        )
+    )
     result = await guard.evaluate(make_ctx(data="SSN: 123-45-6789"))
     assert result.decision == DecisionType.MODIFY
     assert result.modified_arguments is not None
@@ -73,26 +75,28 @@ async def test_redact_mode():
 
 @pytest.mark.asyncio
 async def test_allow_exempt_functions():
-    guard = SensitiveDataGuard(SensitiveDataConfig(
-        allow_functions=["internal_auth"],
-    ))
+    guard = SensitiveDataGuard(
+        SensitiveDataConfig(
+            allow_functions=["internal_auth"],
+        )
+    )
     ctx = CallContext(function_name="internal_auth", arguments={"password": "secret123"})
     assert not guard.should_apply(ctx)
 
 
 @pytest.mark.asyncio
 async def test_custom_patterns():
-    guard = SensitiveDataGuard(SensitiveDataConfig(
-        blocked_patterns=[],
-        custom_patterns={"employee_id": r"EMP-\d{6}"},
-    ))
+    guard = SensitiveDataGuard(
+        SensitiveDataConfig(
+            blocked_patterns=[],
+            custom_patterns={"employee_id": r"EMP-\d{6}"},
+        )
+    )
     result = await guard.evaluate(make_ctx(data="Employee EMP-123456 record"))
     assert result.decision == DecisionType.DENY
 
 
 @pytest.mark.asyncio
 async def test_scan_list_arguments(guard: SensitiveDataGuard):
-    result = await guard.evaluate(make_ctx(
-        items=["normal text", "SSN: 123-45-6789", "more text"]
-    ))
+    result = await guard.evaluate(make_ctx(items=["normal text", "SSN: 123-45-6789", "more text"]))
     assert result.decision == DecisionType.DENY

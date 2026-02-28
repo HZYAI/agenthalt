@@ -38,8 +38,16 @@ class ScopeConfig(BaseModel):
     read_only_mode: bool = False
     read_only_patterns: list[str] = Field(
         default_factory=lambda: [
-            "get_*", "read_*", "list_*", "fetch_*", "search_*",
-            "query_*", "find_*", "lookup_*", "describe_*", "show_*",
+            "get_*",
+            "read_*",
+            "list_*",
+            "fetch_*",
+            "search_*",
+            "query_*",
+            "find_*",
+            "lookup_*",
+            "describe_*",
+            "show_*",
         ]
     )
 
@@ -79,12 +87,11 @@ class ScopeGuard(Guard):
         details: dict[str, Any] = {"function": fn, "agent_id": ctx.agent_id}
 
         # Read-only mode check
-        if self.config.read_only_mode:
-            if not self._matches_any(fn, self.config.read_only_patterns):
-                return self.deny(
-                    f"Read-only mode: '{fn}' is not a read-only operation",
-                    details=details,
-                )
+        if self.config.read_only_mode and not self._matches_any(fn, self.config.read_only_patterns):
+            return self.deny(
+                f"Read-only mode: '{fn}' is not a read-only operation",
+                details=details,
+            )
 
         # Per-agent deny check
         if ctx.agent_id and ctx.agent_id in self.config.deny_by_agent:

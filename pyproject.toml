@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "agenthalt"
-version = "0.1.0"
+version = "0.1.1"
 description = "Production-grade guardrails for AI agent function calls. Prevent overspending, unauthorized purchases, unsafe deletions, and more — with Human-in-the-Loop approval."
 readme = "README.md"
 license = {text = "Apache-2.0"}
@@ -67,7 +67,7 @@ target-version = "py310"
 line-length = 100
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "N", "W", "UP", "B", "SIM", "TCH"]
+select = ["E", "F", "I", "N", "W", "UP", "B", "SIM"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

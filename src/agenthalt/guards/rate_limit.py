@@ -7,7 +7,7 @@ import time
 from collections import deque
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from agenthalt.core.context import CallContext
 from agenthalt.core.decision import Decision
@@ -145,7 +145,8 @@ class RateLimitGuard(Guard):
             count = self.window.get_calls_in_window(60.0)
             if count >= self.config.max_calls_per_minute:
                 return self.deny(
-                    f"Global rate limit exceeded: {count}/{self.config.max_calls_per_minute} calls/min",
+                    f"Global rate limit exceeded: "
+                    f"{count}/{self.config.max_calls_per_minute} calls/min",
                     details={**details, "global_calls_per_min": count},
                 )
 
@@ -164,7 +165,8 @@ class RateLimitGuard(Guard):
             session_count = self.window.get_session_count(ctx.session_id)
             if session_count >= self.config.max_calls_per_session:
                 return self.deny(
-                    f"Session call limit exceeded: {session_count}/{self.config.max_calls_per_session}",
+                    f"Session call limit exceeded: "
+                    f"{session_count}/{self.config.max_calls_per_session}",
                     details={**details, "session_calls": session_count},
                 )
 
@@ -173,7 +175,8 @@ class RateLimitGuard(Guard):
         identical_count = self.window.count_identical_tail(ctx.function_name, args_hash)
         if identical_count >= self.config.max_identical_calls:
             return self.deny(
-                f"Possible agent loop detected: '{ctx.function_name}' called {identical_count} times "
+                f"Possible agent loop detected: '{ctx.function_name}'"
+                f" called {identical_count} times "
                 f"with identical arguments",
                 details={**details, "identical_count": identical_count},
             )

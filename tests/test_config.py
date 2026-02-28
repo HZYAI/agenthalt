@@ -8,13 +8,15 @@ from agenthalt.config import load_config, load_config_from_dict
 
 
 def test_load_from_dict():
-    engine = load_config_from_dict({
-        "guards": {
-            "budget": {"max_daily_spend": 10.0},
-            "deletion": {"allow_patterns": ["temp_*"]},
-            "scope": {"deny_functions": ["drop_*"]},
+    engine = load_config_from_dict(
+        {
+            "guards": {
+                "budget": {"max_daily_spend": 10.0},
+                "deletion": {"allow_patterns": ["temp_*"]},
+                "scope": {"deny_functions": ["drop_*"]},
+            }
         }
-    })
+    )
     assert len(engine.guards) == 3
     names = [g.name for g in engine.guards]
     assert "budget" in names
@@ -58,24 +60,28 @@ def test_empty_config():
 
 
 def test_disabled_guard():
-    engine = load_config_from_dict({
-        "guards": {
-            "budget": {"max_daily_spend": 10.0, "enabled": False},
+    engine = load_config_from_dict(
+        {
+            "guards": {
+                "budget": {"max_daily_spend": 10.0, "enabled": False},
+            }
         }
-    })
+    )
     assert len(engine.guards) == 1
     assert not engine.guards[0].enabled
 
 
 def test_all_guards():
-    engine = load_config_from_dict({
-        "guards": {
-            "budget": {},
-            "purchase": {},
-            "deletion": {},
-            "rate_limit": {},
-            "scope": {},
-            "sensitive_data": {},
+    engine = load_config_from_dict(
+        {
+            "guards": {
+                "budget": {},
+                "purchase": {},
+                "deletion": {},
+                "rate_limit": {},
+                "scope": {},
+                "sensitive_data": {},
+            }
         }
-    })
+    )
     assert len(engine.guards) == 6

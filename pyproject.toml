@@ -12,7 +12,12 @@ requires-python = ">=3.10"
 authors = [
     {name = "HZYAI", email = "hello@hzy.ai"},
 ]
-keywords = ["ai", "agents", "guardrails", "safety", "human-in-the-loop", "llm"]
+keywords = [
+    "ai", "agents", "guardrails", "safety", "human-in-the-loop", "llm",
+    "openai", "langchain", "function-calling", "tool-use", "policy-engine",
+    "budget-guard", "rate-limit", "ai-safety", "autonomous-agents",
+    "middleware", "compliance", "audit", "pii", "sensitive-data",
+]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
@@ -24,6 +29,8 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Security",
+    "Typing :: Typed",
 ]
 dependencies = [
     "pydantic>=2.0",

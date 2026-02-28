@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AgentHalt — Real-Time Dashboard</title>
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --surface2: #1a1a26;
+    --border: #2a2a3a;
+    --text: #e4e4ef;
+    --text-dim: #8888a0;
+    --accent: #6366f1;
+    --accent-glow: rgba(99,102,241,0.15);
+    --green: #22c55e;
+    --red: #ef4444;
+    --amber: #f59e0b;
+    --blue: #3b82f6;
+    --font: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', system-ui, sans-serif;
+    --mono: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: var(--font); background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  /* Header */
+  .header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 28px; border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+  .header-left { display: flex; align-items: center; gap: 14px; }
+  .logo { font-size: 22px; font-weight: 700; letter-spacing: -0.5px; }
+  .logo span { color: var(--accent); }
+  .status-badge {
+    display: flex; align-items: center; gap: 6px;
+    padding: 4px 12px; border-radius: 20px;
+    font-size: 12px; font-weight: 600;
+    background: rgba(34,197,94,0.12); color: var(--green);
+  }
+  .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+  .header-right { display: flex; align-items: center; gap: 16px; font-size: 13px; color: var(--text-dim); }
+
+  /* Stats Row */
+  .stats-row {
+    display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px;
+    padding: 20px 28px;
+  }
+  .stat-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: 18px 20px; position: relative; overflow: hidden;
+  }
+  .stat-card::after {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  }
+  .stat-card.allow::after { background: var(--green); }
+  .stat-card.deny::after { background: var(--red); }
+  .stat-card.approval::after { background: var(--amber); }
+  .stat-card.total::after { background: var(--accent); }
+  .stat-card.risk::after { background: var(--blue); }
+  .stat-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--text-dim); margin-bottom: 8px; }
+  .stat-value { font-size: 32px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .stat-card.allow .stat-value { color: var(--green); }
+  .stat-card.deny .stat-value { color: var(--red); }
+  .stat-card.approval .stat-value { color: var(--amber); }
+  .stat-card.total .stat-value { color: var(--accent); }
+  .stat-card.risk .stat-value { color: var(--blue); }
+
+  /* Main Grid */
+  .main-grid {
+    display: grid; grid-template-columns: 1fr 380px; gap: 16px;
+    padding: 0 28px 28px;
+  }
+
+  /* Event Feed */
+  .panel {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    overflow: hidden;
+  }
+  .panel-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 18px; border-bottom: 1px solid var(--border);
+    font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px;
+  }
+  .panel-header .count { color: var(--text-dim); font-weight: 400; }
+  .event-feed { max-height: 520px; overflow-y: auto; }
+  .event-feed::-webkit-scrollbar { width: 4px; }
+  .event-feed::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .event-row {
+    display: grid; grid-template-columns: 90px 1fr 90px 70px;
+    align-items: center; gap: 12px;
+    padding: 10px 18px; border-bottom: 1px solid rgba(42,42,58,0.5);
+    font-size: 13px; animation: fadeIn 0.3s ease;
+  }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
+  .event-row:hover { background: var(--surface2); }
+
+  .event-time { font-family: var(--mono); font-size: 11px; color: var(--text-dim); }
+  .event-fn { font-family: var(--mono); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .event-decision {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 10px; border-radius: 6px; font-size: 11px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  .event-decision.allow { background: rgba(34,197,94,0.12); color: var(--green); }
+  .event-decision.deny { background: rgba(239,68,68,0.12); color: var(--red); }
+  .event-decision.require_approval { background: rgba(245,158,11,0.12); color: var(--amber); }
+  .event-decision.modify { background: rgba(59,130,246,0.12); color: var(--blue); }
+  .event-risk { font-family: var(--mono); font-size: 12px; text-align: right; }
+
+  /* Budget Panel */
+  .budget-panel { padding: 18px; }
+  .budget-item { margin-bottom: 18px; }
+  .budget-item-header { display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 12px; }
+  .budget-item-label { color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.8px; }
+  .budget-item-value { font-family: var(--mono); font-weight: 600; }
+  .budget-bar { height: 6px; background: var(--surface2); border-radius: 3px; overflow: hidden; }
+  .budget-fill { height: 100%; border-radius: 3px; transition: width 0.5s ease, background 0.3s ease; }
+  .budget-fill.safe { background: var(--green); }
+  .budget-fill.warn { background: var(--amber); }
+  .budget-fill.danger { background: var(--red); }
+
+  /* Guard List */
+  .guard-list { padding: 12px 18px; }
+  .guard-item {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 0; border-bottom: 1px solid rgba(42,42,58,0.3);
+    font-size: 13px;
+  }
+  .guard-name { display: flex; align-items: center; gap: 8px; }
+  .guard-icon { width: 8px; height: 8px; border-radius: 50%; background: var(--green); }
+  .guard-count { font-family: var(--mono); font-size: 12px; color: var(--text-dim); }
+
+  /* Sidebar */
+  .sidebar { display: flex; flex-direction: column; gap: 16px; }
+
+  /* Empty state */
+  .empty-state {
+    padding: 40px 20px; text-align: center; color: var(--text-dim); font-size: 14px;
+  }
+  .empty-state .icon { font-size: 36px; margin-bottom: 12px; opacity: 0.5; }
+
+  /* Footer */
+  .footer {
+    padding: 12px 28px; border-top: 1px solid var(--border);
+    font-size: 11px; color: var(--text-dim);
+    display: flex; justify-content: space-between;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <div class="logo">Agent<span>Halt</span></div>
+    <div class="status-badge"><div class="status-dot"></div><span id="connStatus">Connecting...</span></div>
+  </div>
+  <div class="header-right">
+    <span>Uptime: <strong id="uptime">0s</strong></span>
+    <span>Events: <strong id="eventCount">0</strong></span>
+  </div>
+</div>
+
+<div class="stats-row">
+  <div class="stat-card total"><div class="stat-label">Total Evaluations</div><div class="stat-value" id="statTotal">0</div></div>
+  <div class="stat-card allow"><div class="stat-label">Allowed</div><div class="stat-value" id="statAllow">0</div></div>
+  <div class="stat-card deny"><div class="stat-label">Denied</div><div class="stat-value" id="statDeny">0</div></div>
+  <div class="stat-card approval"><div class="stat-label">Approvals</div><div class="stat-value" id="statApproval">0</div></div>
+  <div class="stat-card risk"><div class="stat-label">Avg Risk</div><div class="stat-value" id="statRisk">0.00</div></div>
+</div>
+
+<div class="main-grid">
+  <div class="panel">
+    <div class="panel-header">
+      <span>Live Event Feed</span>
+      <span class="count" id="feedCount">0 events</span>
+    </div>
+    <div class="event-feed" id="eventFeed">
+      <div class="empty-state">
+        <div class="icon">🛡️</div>
+        <div>Waiting for agent activity...</div>
+        <div style="margin-top:8px;font-size:12px;">Events will appear here in real-time</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sidebar">
+    <div class="panel">
+      <div class="panel-header"><span>Budget Tracking</span></div>
+      <div class="budget-panel" id="budgetPanel">
+        <div class="budget-item">
+          <div class="budget-item-header">
+            <span class="budget-item-label">Daily Spend</span>
+            <span class="budget-item-value" id="dailySpend">$0.00 / $10.00</span>
+          </div>
+          <div class="budget-bar"><div class="budget-fill safe" id="dailyBar" style="width:0%"></div></div>
+        </div>
+        <div class="budget-item">
+          <div class="budget-item-header">
+            <span class="budget-item-label">Session Spend</span>
+            <span class="budget-item-value" id="sessionSpend">$0.00 / $5.00</span>
+          </div>
+          <div class="budget-bar"><div class="budget-fill safe" id="sessionBar" style="width:0%"></div></div>
+        </div>
+        <div class="budget-item">
+          <div class="budget-item-header">
+            <span class="budget-item-label">Rate (calls/min)</span>
+            <span class="budget-item-value" id="rateValue">0 / 30</span>
+          </div>
+          <div class="budget-bar"><div class="budget-fill safe" id="rateBar" style="width:0%"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header"><span>Active Guards</span></div>
+      <div class="guard-list" id="guardList">
+        <div class="empty-state" style="padding:20px;font-size:12px;">No guards registered yet</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="footer">
+  <span>AgentHalt v0.1.0 — by HZYAI</span>
+  <span id="wsStatus">WebSocket: connecting...</span>
+</div>
+
+<script>
+const MAX_EVENTS = 200;
+let events = [];
+let riskScores = [];
+let guardCounts = {};
+let dailySpendTotal = 0;
+let sessionSpendTotal = 0;
+let callsThisMinute = [];
+
+function formatTime(ts) {
+  const d = new Date(ts * 1000);
+  return d.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
+
+function formatUptime(s) {
+  if (s < 60) return Math.floor(s) + 's';
+  if (s < 3600) return Math.floor(s/60) + 'm ' + Math.floor(s%60) + 's';
+  return Math.floor(s/3600) + 'h ' + Math.floor((s%3600)/60) + 'm';
+}
+
+function decisionIcon(d) {
+  switch(d) {
+    case 'allow': return '✓';
+    case 'deny': return '✕';
+    case 'require_approval': return '⏳';
+    case 'modify': return '✎';
+    default: return '?';
+  }
+}
+
+function updateStats() {
+  const total = events.length;
+  const allowed = events.filter(e => e.decision === 'allow').length;
+  const denied = events.filter(e => e.decision === 'deny').length;
+  const approvals = events.filter(e => e.decision === 'require_approval').length;
+  const avgRisk = riskScores.length > 0 ? (riskScores.reduce((a,b) => a+b, 0) / riskScores.length) : 0;
+
+  document.getElementById('statTotal').textContent = total;
+  document.getElementById('statAllow').textContent = allowed;
+  document.getElementById('statDeny').textContent = denied;
+  document.getElementById('statApproval').textContent = approvals;
+  document.getElementById('statRisk').textContent = avgRisk.toFixed(2);
+  document.getElementById('eventCount').textContent = total;
+  document.getElementById('feedCount').textContent = total + ' events';
+}
+
+function updateBudgetBars() {
+  const dailyLimit = 10.0;
+  const sessionLimit = 5.0;
+  const rateLimit = 30;
+
+  const now = Date.now();
+  callsThisMinute = callsThisMinute.filter(t => now - t < 60000);
+  const rate = callsThisMinute.length;
+
+  setBar('dailyBar', 'dailySpend', dailySpendTotal, dailyLimit, '$');
+  setBar('sessionBar', 'sessionSpend', sessionSpendTotal, sessionLimit, '$');
+  setBar('rateBar', 'rateValue', rate, rateLimit, '', '/min');
+}
+
+function setBar(barId, labelId, current, max, prefix, suffix) {
+  const pct = Math.min(100, (current / max) * 100);
+  const bar = document.getElementById(barId);
+  bar.style.width = pct + '%';
+  bar.className = 'budget-fill ' + (pct > 90 ? 'danger' : pct > 70 ? 'warn' : 'safe');
+  const label = document.getElementById(labelId);
+  if (prefix === '$') {
+    label.textContent = '$' + current.toFixed(2) + ' / $' + max.toFixed(2);
+  } else {
+    label.textContent = current + ' / ' + max + (suffix || '');
+  }
+}
+
+function updateGuardList() {
+  const container = document.getElementById('guardList');
+  if (Object.keys(guardCounts).length === 0) return;
+  container.innerHTML = '';
+  const sorted = Object.entries(guardCounts).sort((a,b) => b[1] - a[1]);
+  for (const [name, count] of sorted) {
+    const item = document.createElement('div');
+    item.className = 'guard-item';
+    item.innerHTML = `
+      <div class="guard-name"><div class="guard-icon"></div>${name}</div>
+      <div class="guard-count">${count} evals</div>
+    `;
+    container.appendChild(item);
+  }
+}
+
+function addEventToFeed(event) {
+  if (event.type !== 'evaluation') return;
+
+  events.push(event);
+  if (events.length > MAX_EVENTS) events.shift();
+  riskScores.push(event.risk_score || 0);
+  if (riskScores.length > 100) riskScores.shift();
+  callsThisMinute.push(Date.now());
+
+  // Track budget from event details
+  if (event.decision === 'allow') {
+    const cost = 0.01; // default estimate
+    dailySpendTotal += cost;
+    sessionSpendTotal += cost;
+  }
+
+  // Track guard triggers
+  const reasons = event.reasons || [];
+  for (const r of reasons) {
+    const match = r.match(/^\[(\w+)\]/);
+    if (match) guardCounts[match[1]] = (guardCounts[match[1]] || 0) + 1;
+  }
+  // Also count by guard_count
+  guardCounts['_total'] = (guardCounts['_total'] || 0) + (event.guard_count || 0);
+
+  const feed = document.getElementById('eventFeed');
+  // Remove empty state
+  const empty = feed.querySelector('.empty-state');
+  if (empty) empty.remove();
+
+  const row = document.createElement('div');
+  row.className = 'event-row';
+  const decision = event.decision || 'unknown';
+  const riskColor = event.risk_score > 0.7 ? 'var(--red)' : event.risk_score > 0.3 ? 'var(--amber)' : 'var(--text-dim)';
+  row.innerHTML = `
+    <div class="event-time">${formatTime(event.timestamp || Date.now()/1000)}</div>
+    <div class="event-fn" title="${event.function_name}">${event.function_name}</div>
+    <div><span class="event-decision ${decision}">${decisionIcon(decision)} ${decision.replace('_', ' ')}</span></div>
+    <div class="event-risk" style="color:${riskColor}">${(event.risk_score || 0).toFixed(2)}</div>
+  `;
+  feed.insertBefore(row, feed.firstChild);
+
+  // Trim old rows
+  while (feed.children.length > MAX_EVENTS) feed.removeChild(feed.lastChild);
+
+  updateStats();
+  updateBudgetBars();
+}
+
+// WebSocket connection
+let ws;
+let reconnectTimer;
+
+function connect() {
+  const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  ws = new WebSocket(`${protocol}//${location.host}/ws`);
+
+  ws.onopen = () => {
+    document.getElementById('connStatus').textContent = 'Connected';
+    document.getElementById('wsStatus').textContent = 'WebSocket: connected';
+    if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+  };
+
+  ws.onmessage = (e) => {
+    try {
+      const data = JSON.parse(e.data);
+      if (data.type === 'stats') {
+        // Initial stats from server
+        document.getElementById('statTotal').textContent = data.total_evaluations || 0;
+        document.getElementById('statAllow').textContent = data.total_allowed || 0;
+        document.getElementById('statDeny').textContent = data.total_denied || 0;
+        document.getElementById('statApproval').textContent = data.total_approvals || 0;
+      } else if (data.type === 'evaluation') {
+        addEventToFeed(data);
+      } else if (data.type === 'approval') {
+        // Could show approval notifications here
+      }
+    } catch (err) { console.warn('Parse error:', err); }
+  };
+
+  ws.onclose = () => {
+    document.getElementById('connStatus').textContent = 'Disconnected';
+    document.getElementById('wsStatus').textContent = 'WebSocket: reconnecting...';
+    reconnectTimer = setTimeout(connect, 2000);
+  };
+
+  ws.onerror = () => ws.close();
+}
+
+// Uptime counter
+let startTime = Date.now();
+setInterval(() => {
+  document.getElementById('uptime').textContent = formatUptime((Date.now() - startTime) / 1000);
+}, 1000);
+
+// Start
+connect();
+</script>
+</body>
+</html>

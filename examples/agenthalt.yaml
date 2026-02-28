@@ -1,0 +1,73 @@
+# AgentHalt Configuration Example
+# Define guards and their policies in this file, then load with:
+#   from agenthalt.config import load_config
+#   engine = load_config("agenthalt.yaml")
+
+guards:
+  budget:
+    max_daily_spend: 10.0
+    max_session_spend: 2.0
+    warn_threshold: 0.8
+    cost_estimator:
+      gpt4_call: 0.03
+      gpt4_turbo_call: 0.01
+      web_search: 0.01
+      image_generation: 0.04
+
+  deletion:
+    allow_patterns:
+      - "temp_*"
+      - "draft_*"
+      - "cache_*"
+    deny_patterns:
+      - "*_production"
+      - "*_backup"
+    protected_resources:
+      - inbox
+      - sent
+      - important
+      - contacts
+    require_approval_always: true
+    max_bulk_delete: 5
+    max_deletions_per_day: 20
+
+  purchase:
+    max_single_purchase: 100.0
+    max_daily_purchases: 500.0
+    max_purchase_count_per_day: 10
+    require_approval_above: 50.0
+    blocked_categories:
+      - luxury
+      - gambling
+      - cryptocurrency
+
+  rate_limit:
+    max_calls_per_minute: 30
+    max_calls_per_minute_per_function: 10
+    max_identical_calls: 3
+    burst_threshold: 15
+    cooldown_seconds: 30.0
+
+  scope:
+    deny_functions:
+      - "drop_*"
+      - "format_disk"
+      - "rm_rf"
+      - "shutdown_*"
+    require_approval_functions:
+      - send_email
+      - post_tweet
+      - publish_*
+
+  sensitive_data:
+    blocked_patterns:
+      - ssn
+      - credit_card
+      - api_key
+      - aws_key
+    sensitive_fields:
+      - password
+      - secret
+      - token
+      - api_key
+      - private_key

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "agenthalt"
-version = "0.1.1"
+version = "0.1.2"
 description = "Production-grade guardrails for AI agent function calls. Prevent overspending, unauthorized purchases, unsafe deletions, and more — with Human-in-the-Loop approval."
 readme = "README.md"
 license = {text = "Apache-2.0"}

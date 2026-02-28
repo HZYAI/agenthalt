@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AgentHalt — Real-Time Dashboard</title>
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
 <style>
   :root {
     --bg: #0a0a0f;
@@ -367,54 +368,35 @@ function addEventToFeed(event) {
   updateBudgetBars();
 }
 
-// WebSocket connection
-let ws;
-let reconnectTimer;
+// Socket.IO connection
+const socket = io('http://127.0.0.1:8550', { transports: ['websocket', 'polling'] });
 
-function connect() {
-  const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-  ws = new WebSocket(`${protocol}//${location.host}/ws`);
+socket.on('connect', () => {
+  document.getElementById('connStatus').textContent = 'Connected';
+  document.getElementById('wsStatus').textContent = 'Socket.IO: connected';
+});
 
-  ws.onopen = () => {
-    document.getElementById('connStatus').textContent = 'Connected';
-    document.getElementById('wsStatus').textContent = 'WebSocket: connected';
-    if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
-  };
+socket.on('disconnect', () => {
+  document.getElementById('connStatus').textContent = 'Disconnected';
+  document.getElementById('wsStatus').textContent = 'Socket.IO: reconnecting...';
+});
 
-  ws.onmessage = (e) => {
-    try {
-      const data = JSON.parse(e.data);
-      if (data.type === 'stats') {
-        // Initial stats from server
-        document.getElementById('statTotal').textContent = data.total_evaluations || 0;
-        document.getElementById('statAllow').textContent = data.total_allowed || 0;
-        document.getElementById('statDeny').textContent = data.total_denied || 0;
-        document.getElementById('statApproval').textContent = data.total_approvals || 0;
-      } else if (data.type === 'evaluation') {
-        addEventToFeed(data);
-      } else if (data.type === 'approval') {
-        // Could show approval notifications here
-      }
-    } catch (err) { console.warn('Parse error:', err); }
-  };
+socket.on('stats', (data) => {
+  document.getElementById('statTotal').textContent = data.total_evaluations || 0;
+  document.getElementById('statAllow').textContent = data.total_allowed || 0;
+  document.getElementById('statDeny').textContent = data.total_denied || 0;
+  document.getElementById('statApproval').textContent = data.total_approvals || 0;
+});
 
-  ws.onclose = () => {
-    document.getElementById('connStatus').textContent = 'Disconnected';
-    document.getElementById('wsStatus').textContent = 'WebSocket: reconnecting...';
-    reconnectTimer = setTimeout(connect, 2000);
-  };
-
-  ws.onerror = () => ws.close();
-}
+socket.on('event', (data) => {
+  if (data.type === 'evaluation') addEventToFeed(data);
+});
 
 // Uptime counter
 let startTime = Date.now();
 setInterval(() => {
   document.getElementById('uptime').textContent = formatUptime((Date.now() - startTime) / 1000);
 }, 1000);
-
-// Start
-connect();
 </script>
 </body>
 </html>

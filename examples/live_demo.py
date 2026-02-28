@@ -14,26 +14,23 @@ Then open http://localhost:8550 to watch the dashboard.
 from __future__ import annotations
 
 import asyncio
-import random
-import sys
-import time
 
 from agenthalt import (
-    PolicyEngine,
-    CallContext,
-    BudgetGuard,
-    BudgetConfig,
-    PurchaseGuard,
-    PurchaseConfig,
-    DeletionGuard,
-    DeletionConfig,
-    RateLimitGuard,
-    RateLimitConfig,
-    ScopeGuard,
-    ScopeConfig,
-    SensitiveDataGuard,
-    SensitiveDataConfig,
     AuditLogger,
+    BudgetConfig,
+    BudgetGuard,
+    CallContext,
+    DeletionConfig,
+    DeletionGuard,
+    PolicyEngine,
+    PurchaseConfig,
+    PurchaseGuard,
+    RateLimitConfig,
+    RateLimitGuard,
+    ScopeConfig,
+    ScopeGuard,
+    SensitiveDataConfig,
+    SensitiveDataGuard,
 )
 from agenthalt.audit.logger import LoggingSink
 from agenthalt.dashboard.server import create_event_listener
@@ -150,7 +147,10 @@ DANGEROUS_ACTIONS = [
     # Budget burn — expensive calls
     ("image_generation", {"prompt": "Generate 50 product images", "n": 50}),
     # Unauthorized purchase
-    ("purchase_item", {"amount": 250.0, "item": "Premium GPU instance", "category": "cloud"}),
+    (
+        "purchase_item",
+        {"amount": 250.0, "item": "Premium GPU instance", "category": "cloud"},
+    ),
     # Purchase in blocked category
     ("buy_item", {"amount": 50.0, "category": "gambling", "item": "Lottery tickets"}),
     # Delete protected resource
@@ -173,7 +173,9 @@ LOOP_ACTIONS = [
 ]
 
 
-async def run_scenario(engine: PolicyEngine, name: str, actions: list, delay: float = 0.5):
+async def run_scenario(
+    engine: PolicyEngine, name: str, actions: list, delay: float = 0.5
+):
     """Run a named scenario and print results."""
     print(f"\n{'='*60}")
     print(f"  SCENARIO: {name}")
@@ -190,7 +192,9 @@ async def run_scenario(engine: PolicyEngine, name: str, actions: list, delay: fl
 
         icon = "✅" if result.is_allowed else "⏳" if result.needs_approval else "❌"
         decision = result.final_decision.decision.value
-        reason = result.final_decision.reason[:60] if result.final_decision.reason else ""
+        reason = (
+            result.final_decision.reason[:60] if result.final_decision.reason else ""
+        )
         risk = result.max_risk_score
 
         print(f"  {icon} {fn_name:<30} {decision:<20} risk={risk:.2f}  {reason}")
@@ -205,21 +209,36 @@ async def main():
 
     engine = build_engine()
 
-    # Start dashboard server in background
+    # Start dashboard server in background thread (Flask-SocketIO)
     try:
-        from agenthalt.dashboard.server import create_app
-        import uvicorn
+        import threading
 
-        app = create_app(engine)
-        config = uvicorn.Config(app, host="127.0.0.1", port=8550, log_level="warning")
-        server = uvicorn.Server(config)
-        asyncio.create_task(server.serve())
+        from agenthalt.dashboard.server import create_app
+
+        flask_app, socketio = create_app(engine)
+
+        def _run_server():
+            socketio.run(
+                flask_app,
+                host="127.0.0.1",
+                port=8550,
+                debug=False,
+                allow_unsafe_werkzeug=True,
+                log_output=False,
+            )
+
+        t = threading.Thread(target=_run_server, daemon=True)
+        t.start()
+        await asyncio.sleep(1.5)  # Let server fully start
         print("\n  📊 Dashboard running at http://127.0.0.1:8550")
     except ImportError:
-        print("\n  ⚠️  Install dashboard deps: pip install agenthalt[dashboard]")
-        print("     Continuing without dashboard...\n")
+        print("\n  ⚠️  Install dashboard deps: pip install flask flask-socketio")
 
-    await asyncio.sleep(1.0)
+    print("\n  👉 Open http://localhost:8550 in your browser now!")
+    for i in range(10, 0, -1):
+        print(f"  ⏳ Starting in {i}s — open the dashboard now...", end="\r")
+        await asyncio.sleep(1)
+    print("  🚀 Starting demo!                                ")
 
     # ── Scenario 1: Normal agent operations ──
     await run_scenario(engine, "Normal Agent Operations", NORMAL_ACTIONS, delay=0.3)
@@ -227,7 +246,9 @@ async def main():
     await asyncio.sleep(2.0)  # Let rate limit window clear
 
     # ── Scenario 2: Agent goes rogue ──
-    await run_scenario(engine, "Rogue Agent — Dangerous Actions", DANGEROUS_ACTIONS, delay=1.0)
+    await run_scenario(
+        engine, "Rogue Agent — Dangerous Actions", DANGEROUS_ACTIONS, delay=1.0
+    )
 
     await asyncio.sleep(2.0)  # Let rate limit window clear
 
@@ -245,7 +266,7 @@ async def main():
     )
     loop_engine.add_event_listener(create_event_listener())
     print(f"\n{'='*60}")
-    print(f"  SCENARIO: Agent Stuck in Loop (same call repeated)")
+    print("  SCENARIO: Agent Stuck in Loop (same call repeated)")
     print(f"{'='*60}")
     for i in range(8):
         ctx = CallContext(
@@ -257,7 +278,9 @@ async def main():
         result = await loop_engine.evaluate(ctx)
         icon = "✅" if result.is_allowed else "❌"
         decision = result.final_decision.decision.value
-        reason = result.final_decision.reason[:60] if result.final_decision.reason else ""
+        reason = (
+            result.final_decision.reason[:60] if result.final_decision.reason else ""
+        )
         print(f"  {icon} Call #{i+1}: gpt4_call  {decision:<20} {reason}")
         await asyncio.sleep(0.2)
 
@@ -277,7 +300,7 @@ async def main():
     )
     budget_engine.add_event_listener(create_event_listener())
     print(f"\n{'='*60}")
-    print(f"  SCENARIO: Budget Exhaustion (session limit $0.15)")
+    print("  SCENARIO: Budget Exhaustion (session limit $0.15)")
     print(f"{'='*60}")
     for i in range(15):
         ctx = CallContext(
@@ -291,15 +314,17 @@ async def main():
             print(f"  ❌ Call #{i+1}: DENIED — {result.final_decision.reason[:70]}")
             break
         elif result.needs_approval:
-            print(f"  ⏳ Call #{i+1}: NEEDS APPROVAL — {result.final_decision.reason[:70]}")
+            print(
+                f"  ⏳ Call #{i+1}: NEEDS APPROVAL — {result.final_decision.reason[:70]}"
+            )
         else:
             print(f"  ✅ Call #{i+1}: allowed (spent ${(i+1)*0.03:.2f} so far)")
         await asyncio.sleep(0.5)
 
     # Summary
     print(f"\n{'='*60}")
-    print(f"  🏁 Demo Complete!")
-    print(f"  Dashboard: http://127.0.0.1:8550")
+    print("  🏁 Demo Complete!")
+    print("  Dashboard: http://127.0.0.1:8550")
     print(f"{'='*60}\n")
 
     # Keep dashboard running

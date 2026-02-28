@@ -19,7 +19,7 @@ from agenthalt.guards.scope import ScopeConfig, ScopeGuard
 from agenthalt.guards.sensitive_data import SensitiveDataConfig, SensitiveDataGuard
 from agenthalt.hil.approval import ApprovalHandler, ConsoleApprovalHandler
 
-__version__ = "0.1.1"
+__version__ = "0.1.2"
 
 __all__ = [
     # Core

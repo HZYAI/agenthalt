@@ -50,6 +50,9 @@ dev = [
     "mypy>=1.0",
 ]
 
+[project.scripts]
+agenthalt = "agenthalt.__main__:main"
+
 [project.urls]
 Homepage = "https://github.com/hzyai/agenthalt"
 Documentation = "https://github.com/hzyai/agenthalt#readme"

@@ -6,7 +6,7 @@ AgentHalt is a Python library that prevents AI agents from making unauthorized, 
 
 - **Repository**: https://github.com/hzyai/agenthalt
 - **Package**: `pip install agenthalt`
-- **Version**: 0.1.2
+- **Version**: 0.1.3
 - **License**: Apache 2.0
 - **Python**: 3.10+
 - **Author**: HZYAI Pty Ltd

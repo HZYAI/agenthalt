@@ -10,7 +10,7 @@ readme = "README.md"
 license = {text = "Apache-2.0"}
 requires-python = ">=3.10"
 authors = [
-    {name = "HZYAI", email = "hello@hzy.ai"},
+    {name = "HZYAI", email = "hwan@hzyai.com"},
 ]
 keywords = [
     "ai", "agents", "guardrails", "safety", "human-in-the-loop", "llm",

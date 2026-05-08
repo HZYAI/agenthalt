@@ -1,0 +1,376 @@
+# AgentHalt
+
+> Production-grade guardrails for AI agent function calls.
+
+AgentHalt is a Python library that prevents AI agents from making unauthorized, unsafe, or excessive function calls. It works as middleware between the agent and tool execution — policies are defined in code or YAML, not in the system prompt, so they cannot be jailbroken or prompt-injected away.
+
+- **Repository**: https://github.com/hzyai/agenthalt
+- **Package**: `pip install agenthalt`
+- **Version**: 0.1.2
+- **License**: Apache 2.0
+- **Python**: 3.10+
+- **Author**: HZYAI Pty Ltd
+
+## Core Concepts
+
+AgentHalt intercepts agent function calls and evaluates them against a stack of composable **Guards** via a central **PolicyEngine**. Each guard returns a **Decision** (allow, deny, require_approval, or modify). The most restrictive decision wins: `DENY > REQUIRE_APPROVAL > MODIFY > ALLOW`. Guard errors result in a fail-safe denial.
+
+Key design principles:
+- Policy-as-code — rules in Python or YAML, never in prompts
+- Zero-trust default — guard errors = denial
+- Composable — stack multiple guards; most restrictive wins
+- Framework-agnostic — works with OpenAI, LangChain, CrewAI, or raw calls
+- Async-first with sync wrappers
+- Concurrent guard evaluation for minimal latency
+
+## Installation
+
+```bash
+pip install agenthalt                    # core
+pip install agenthalt[openai]            # + OpenAI integration
+pip install agenthalt[dashboard]         # + real-time dashboard (FastAPI)
+pip install agenthalt[all]               # everything
+pip install agenthalt[dev]               # development tools
+```
+
+Dependencies: pydantic>=2.0, pyyaml>=6.0.
+
+## Project Structure
+
+```
+src/agenthalt/
+  __init__.py              # Public API re-exports
+  __main__.py              # CLI entry point
+  config.py                # YAML configuration loader (load_config)
+  decorators.py            # @guarded decorator, GuardedCallBlocked exception
+  core/
+    context.py             # CallContext — immutable snapshot of a function call
+    decision.py            # Decision, DecisionType — guard evaluation results
+    engine.py              # PolicyEngine, GuardResult — central orchestrator
+    guard.py               # Guard ABC — base class for all guards
+    policy.py              # Policy, PolicySet — declarative rule definitions
+  guards/
+    budget.py              # BudgetGuard, BudgetConfig
+    deletion.py            # DeletionGuard, DeletionConfig
+    purchase.py            # PurchaseGuard, PurchaseConfig
+    rate_limit.py          # RateLimitGuard, RateLimitConfig
+    scope.py               # ScopeGuard, ScopeConfig
+    sensitive_data.py      # SensitiveDataGuard, SensitiveDataConfig
+  hil/
+    approval.py            # ApprovalHandler ABC, ConsoleApprovalHandler,
+                           #   AutoDenyHandler, AutoApproveHandler,
+                           #   CallbackApprovalHandler
+  audit/
+    logger.py              # AuditLogger, AuditEntry, JsonFileSink,
+                           #   LoggingSink, CallbackSink
+  integrations/
+    openai_adapter.py      # OpenAIGuardedClient
+  state/
+    backend.py             # StateBackend ABC, InMemoryBackend, SQLiteBackend
+  dashboard/
+    server.py              # FastAPI dashboard server
+    templates/             # HTML templates for real-time dashboard UI
+examples/
+  quickstart.py            # Full usage walkthrough
+  decorator_example.py     # @guarded decorator usage
+  yaml_config_example.py   # YAML-based configuration
+  agenthalt.yaml           # Example YAML config file
+  live_demo.py             # Real-time dashboard demo
+tests/
+  test_engine.py           # PolicyEngine tests
+  test_budget_guard.py     # BudgetGuard tests
+  test_deletion_guard.py   # DeletionGuard tests
+  test_purchase_guard.py   # PurchaseGuard tests
+  test_rate_limit_guard.py # RateLimitGuard tests
+  test_scope_guard.py      # ScopeGuard tests
+  test_sensitive_data_guard.py # SensitiveDataGuard tests
+  test_config.py           # YAML config loader tests
+```
+
+## Quick Start
+
+```python
+import asyncio
+from agenthalt import (
+    PolicyEngine, CallContext,
+    BudgetGuard, BudgetConfig,
+    DeletionGuard, DeletionConfig,
+    PurchaseGuard, PurchaseConfig,
+)
+
+async def main():
+    engine = PolicyEngine()
+    engine.add_guard(BudgetGuard(BudgetConfig(max_daily_spend=10.0)))
+    engine.add_guard(DeletionGuard(DeletionConfig(
+        allow_patterns=["temp_*", "draft_*"],
+        protected_resources=["inbox", "sent"],
+    )))
+    engine.add_guard(PurchaseGuard(PurchaseConfig(
+        max_single_purchase=100.0,
+        require_approval_above=50.0,
+    )))
+
+    result = await engine.evaluate(CallContext(
+        function_name="delete_email",
+        arguments={"email_id": "inbox"},
+    ))
+
+    if result.is_allowed:
+        ...  # proceed
+    elif result.needs_approval:
+        ...  # route to human approval
+    else:
+        print(f"Blocked: {result.denial_reasons}")
+
+asyncio.run(main())
+```
+
+## Core API
+
+### CallContext (pydantic BaseModel, frozen)
+Immutable snapshot of an agent function call to be evaluated.
+
+Fields:
+- `call_id: str` — auto-generated unique ID
+- `function_name: str` — name of the function/tool being invoked
+- `arguments: dict[str, Any]` — arguments passed to the function
+- `agent_id: str | None` — optional agent identifier
+- `session_id: str | None` — optional session identifier
+- `timestamp: float` — unix timestamp (auto-set)
+- `metadata: dict[str, Any]` — arbitrary extra metadata for custom guards
+
+### DecisionType (str Enum)
+- `ALLOW` — call is safe to proceed
+- `DENY` — call is blocked
+- `REQUIRE_APPROVAL` — needs human approval before proceeding
+- `MODIFY` — call may proceed with modified arguments
+
+### Decision (pydantic BaseModel)
+Result of a guard evaluating a function call.
+
+Fields:
+- `decision: DecisionType`
+- `guard_name: str`
+- `reason: str`
+- `details: dict[str, Any]`
+- `modified_arguments: dict[str, Any] | None`
+- `risk_score: float` (0.0–1.0)
+
+Properties: `is_blocked`, `needs_approval`.
+
+### Guard (ABC)
+Abstract base class. Subclass to create custom guards.
+
+Methods:
+- `should_apply(ctx: CallContext) -> bool` — whether this guard applies (default: True)
+- `evaluate(ctx: CallContext) -> Decision` — (abstract, async) main evaluation logic
+- `evaluate_sync(ctx: CallContext) -> Decision` — sync wrapper
+- Helper factories: `allow(reason)`, `deny(reason, details, risk_score)`, `require_approval(reason, details, risk_score)`, `modify(reason, modified_arguments, details)`
+
+Constructor: `Guard(name: str, *, enabled: bool = True)`
+
+### PolicyEngine
+Central orchestrator that registers guards and evaluates function calls concurrently.
+
+Constructor: `PolicyEngine(*, approval_handler: ApprovalHandler | None = None)`
+
+Methods:
+- `add_guard(guard) -> self`
+- `remove_guard(name) -> self`
+- `get_guard(name) -> Guard | None`
+- `add_pre_hook(hook) -> self` — hook runs before evaluation, can modify context
+- `add_post_hook(hook) -> self` — hook runs after evaluation (logging, metrics)
+- `set_approval_handler(handler) -> self`
+- `add_event_listener(listener) -> self` — real-time event listener (dashboard, webhooks)
+- `evaluate(ctx: CallContext) -> GuardResult` — (async) evaluate against all guards
+- `evaluate_sync(ctx: CallContext) -> GuardResult` — sync wrapper
+
+### GuardResult
+Aggregated result from all guards for a single function call.
+
+Properties:
+- `final_decision: Decision` — most restrictive decision
+- `is_allowed: bool` — True if call should proceed (allowed, modified, or approved)
+- `is_denied: bool`
+- `needs_approval: bool`
+- `modified_arguments: dict | None`
+- `denial_reasons: list[str]`
+- `approval_reasons: list[str]`
+- `max_risk_score: float`
+
+## Built-in Guards
+
+### BudgetGuard
+Prevents overspending. Config fields: `max_call_cost`, `max_session_spend`, `max_daily_spend`, `max_monthly_spend`, `warn_threshold` (0–1, triggers approval at this % of limit), `cost_estimator` (dict mapping function names to costs).
+
+### PurchaseGuard
+Prevents unauthorized purchases. Config: `max_single_purchase`, `max_daily_purchases`, `max_purchase_count_per_day`, `require_approval_above`, `blocked_categories`.
+
+### DeletionGuard
+Restricts deletions. Config: `allow_patterns`, `deny_patterns`, `protected_resources`, `require_approval_always`, `max_bulk_delete`, `max_deletions_per_day`, `soft_delete_only`, `cooldown_seconds`.
+
+### RateLimitGuard
+Prevents runaway loops. Config: `max_calls_per_minute`, `max_calls_per_minute_per_function`, `max_calls_per_session`, `max_identical_calls`, `burst_threshold`, `burst_window_seconds`, `cooldown_seconds`.
+
+### ScopeGuard
+Restricts which functions an agent can call. Config: `allow_functions`, `deny_functions`, `require_approval_functions`, `deny_by_agent` (per-agent overrides), `read_only_mode`.
+
+### SensitiveDataGuard
+Blocks PII/credentials in arguments. Config: `blocked_patterns` (e.g. "ssn", "credit_card", "api_key"), `sensitive_fields`, `custom_patterns` (dict of name to regex), `redact_on_modify` (redact instead of deny).
+
+## Creating Custom Guards
+
+```python
+from agenthalt import Guard, CallContext
+from agenthalt.core.decision import Decision
+
+class BusinessHoursGuard(Guard):
+    def __init__(self):
+        super().__init__(name="business_hours")
+
+    def should_apply(self, ctx: CallContext) -> bool:
+        return ctx.function_name in ("send_email", "make_payment")
+
+    async def evaluate(self, ctx: CallContext) -> Decision:
+        import datetime
+        now = datetime.datetime.now()
+        if 9 <= now.hour < 17 and now.weekday() < 5:
+            return self.allow("Within business hours")
+        return self.require_approval(
+            f"Outside business hours ({now.strftime('%A %H:%M')})",
+            risk_score=0.6,
+        )
+```
+
+## YAML Configuration
+
+Define all guards in a single YAML file and load with `load_config`:
+
+```yaml
+# agenthalt.yaml
+guards:
+  budget:
+    max_daily_spend: 10.0
+    warn_threshold: 0.8
+    cost_estimator:
+      gpt4_call: 0.03
+      web_search: 0.01
+  deletion:
+    allow_patterns: ["temp_*", "draft_*"]
+    protected_resources: ["inbox", "sent"]
+    require_approval_always: true
+  purchase:
+    max_single_purchase: 100.0
+    require_approval_above: 50.0
+    blocked_categories: ["luxury", "gambling"]
+  rate_limit:
+    max_calls_per_minute: 30
+    max_identical_calls: 3
+  scope:
+    deny_functions: ["drop_*", "format_*"]
+  sensitive_data:
+    blocked_patterns: ["ssn", "credit_card", "api_key"]
+```
+
+```python
+from agenthalt.config import load_config
+engine = load_config("agenthalt.yaml")
+```
+
+`load_config_from_dict(data)` also available for programmatic use.
+
+## Decorator API
+
+```python
+from agenthalt import PolicyEngine, BudgetGuard, BudgetConfig, guarded
+from agenthalt.decorators import GuardedCallBlocked
+
+engine = PolicyEngine()
+engine.add_guard(BudgetGuard(BudgetConfig(max_daily_spend=10.0)))
+
+@guarded(engine, agent_id="my_agent")
+def call_api(prompt: str, model: str = "gpt-4") -> str:
+    return openai_client.chat(prompt, model=model)
+
+@guarded(engine)
+async def search_web(query: str) -> list[str]:
+    return await web_search(query)
+
+try:
+    result = call_api("Hello world")
+except GuardedCallBlocked as e:
+    print(f"Blocked: {e.result.denial_reasons}")
+```
+
+Parameters: `engine`, `agent_id`, `session_id`, `raise_on_deny` (default True), `raise_on_approval` (default True).
+
+## Human-in-the-Loop (HIL) Approval
+
+Pluggable approval handlers via `ApprovalHandler` ABC.
+
+Built-in handlers:
+- `ConsoleApprovalHandler(timeout=300.0, default_deny=True)` — interactive CLI prompt
+- `CallbackApprovalHandler(callback)` — custom async/sync callback (Slack, webhooks, etc.)
+- `AutoDenyHandler(reason)` — auto-deny, for CI/testing
+- `AutoApproveHandler()` — auto-approve, testing only
+
+Models: `ApprovalRequest` (call_context, decisions, reason, risk_score), `ApprovalResponse` (approved, approver, reason, conditions).
+
+## OpenAI Integration
+
+```python
+from agenthalt.integrations.openai_adapter import OpenAIGuardedClient
+
+guarded = OpenAIGuardedClient(engine=engine, agent_id="assistant")
+
+# Evaluate tool_call objects from OpenAI chat completions
+result = await guarded.evaluate_tool_call(tool_call)
+
+# Or evaluate raw function name + arguments
+result = await guarded.evaluate_function_call("delete_email", {"email_id": "abc"})
+```
+
+Sync versions available: `evaluate_tool_call_sync`.
+
+## Audit Logging
+
+```python
+from agenthalt import AuditLogger
+from agenthalt.audit.logger import JsonFileSink, LoggingSink
+
+audit = AuditLogger()
+audit.add_sink(JsonFileSink("audit.jsonl"))
+audit.add_sink(LoggingSink())
+engine.add_post_hook(audit.create_post_hook())
+
+# Query audit history
+denied = audit.query(decision="deny", limit=10)
+```
+
+Sinks: `JsonFileSink`, `LoggingSink`, `CallbackSink`. Query filters: `function_name`, `decision`, `agent_id`, `session_id`, `since`, `limit`.
+
+## State Backends
+
+Guards persist budget tracking, rate limits, and deletion counts via `StateBackend`:
+- `InMemoryBackend` — default, for testing
+- `SQLiteBackend(db_path)` — production, zero external deps, survives restarts
+
+## Real-Time Dashboard
+
+```bash
+pip install agenthalt[dashboard]
+python examples/live_demo.py
+# Open http://localhost:8550
+```
+
+Features: live event feed via WebSocket, budget gauges, stats overview, guard status panel, dark theme.
+
+## Development
+
+```bash
+pip install -e ".[dev]"
+pytest                      # run tests
+pytest --cov=agenthalt      # with coverage
+mypy src/agenthalt          # type checking
+ruff check src/             # linting
+```
